@@ -2,31 +2,33 @@ from collections import UserDict
 from collections.abc import Iterator
 import time
 from datetime import datetime
-import re
-
 
 class AddressBook(UserDict):
+    '''The only Address book'''
     instance = None
     def __new__(cls):
-        if cls.instance == None:
+        if cls.instance is None:
             cls.instance = super(AddressBook, cls).__new__(cls)
         return cls.instance
-    
+
     def __init__(self) -> None:
+        super(AddressBook, self).__init__()
         self.data = {}
         self.cache = []
         self.idx_sheet = [0, 2]
 
     def add_record(self, record):
+        '''Add some contact'''
         key = record.name.value
         self.data[key] = record
-    
+
     def show_all(self):
+        '''Show all contacts'''
         self.cache = []
         for username, rec in self.items():
             days_to_birthday = rec.days_to_birthday()\
                     if rec.days_to_birthday() else '------'
-            
+
             if rec.phones:
                 self.cache.append('|{:^15}|{:^15}|{:^16}|\n'.format(
                             username.title(),
@@ -44,8 +46,8 @@ class AddressBook(UserDict):
                 self.cache.append('|{:^15}|{:^15}|{:^16}|\n'.format(
                             username, ' ', days_to_birthday
                             ))
-        
-        
+
+
     def __next__(self):
         if self.idx_sheet[0] >= self.idx_sheet[1]:
             self.idx_sheet = [0, 2]
@@ -61,13 +63,15 @@ class AddressBook(UserDict):
         self.idx_sheet.pop(0)
         if (self.idx_sheet[0] + 2) <= len(self.cache):
             self.idx_sheet.append(self.idx_sheet[0] + 2)
+            
         else: self.idx_sheet.append(len(self.cache))
         return sheet
 
-class AddressBook_Iter:
+class AddressBookIter:
+    '''Seting up the Iterator for AddressBook'''
     def __iter__(self) -> Iterator:
         return ab
-        
+
 class Record:
     def __init__(self, name, phone=None, birthday=None) -> None:
         self.name = name
@@ -95,8 +99,12 @@ class Record:
 
 class Field:
     pass
+    # def __init__(self) -> None:
+    #     self.value = {}
+    # def __setattr__(self, __name: str, __value: Any) -> None:
+    #     self.value[__name] = __value
 
-    
+
 class Name(Field):
     def __init__(self, name) -> None:
         self.value = name
@@ -109,7 +117,7 @@ class Birthday(Field):
 class Phone(Field):
     def __init__(self, phone) -> None:
         self.value = phone
-        
+
 
 class UsernameError(LookupError):
     '''Username not found!'''
@@ -117,6 +125,7 @@ class CommandError(LookupError):
     '''Undefined command'''
 class DateError(LookupError):
     '''Unsupported date format'''    
+
 
 def input_error(handler: tuple) -> str:
     '''Return input error'''
@@ -159,9 +168,9 @@ def handler(command: str, args) -> str:
         try:
             if birthday:
                 birthday = datetime.strptime(birthday, '%Y-%m-%d')
-        except:
-            raise DateError
-        
+        except ValueError as err:
+            raise DateError from err
+
         if name in ab.keys():
             if phone:
                 phone = Phone(phone)
@@ -170,7 +179,7 @@ def handler(command: str, args) -> str:
                 birthday = Birthday(birthday)
                 ab[name].birthday = birthday
             return 'Done'
-        
+
         name = Name(name)
         if phone:
             phone = Phone(phone)
@@ -185,12 +194,12 @@ def handler(command: str, args) -> str:
 
         if name not in ab.keys():
             raise UsernameError
-        
+
         for phone in ab[name].phones:
             if phone.value == old_number:
                 phone.value = new_number
                 return 'Done'
-        
+
         raise ValueError
 
     def show(name: str) -> str:
@@ -200,11 +209,11 @@ def handler(command: str, args) -> str:
         if name == 'all':
             ab.show_all()
             return ab_iter
-        
+
         days_to_birthday = '------'
         if ab[name].birthday.value:
             days_to_birthday = ab[name].days_to_birthday()
-        
+
         text = '|{:^15}|{:^15}|{:^16}|\n'.format(
                                 'Username',
                                 'Phone',
@@ -229,7 +238,7 @@ def handler(command: str, args) -> str:
     elif command == 'show':
         return show(args[0])
     raise CommandError
-    
+
 def parser(raw_input: str) -> str|tuple[str]:
     '''Returns (command, name, number, birthday)'''
     raw_input = str(raw_input)
@@ -240,7 +249,7 @@ def parser(raw_input: str) -> str|tuple[str]:
         print('Good bye!')
         time.sleep(3)
         return 'break'
-    
+
     user_input = raw_input.split(' ')
     if len(user_input) < 2:
         return 'error'
@@ -295,16 +304,15 @@ def main() -> None:
             break
         result = handler(command[0], command[1:])
 
-        # print(result)
-        if type(result) == AddressBook_Iter:
+        if isinstance(result, AddressBookIter):
             for sheet in result:
                 print(sheet)
                 break
         else:
-            print(result) 
+            print(result)
 
 
 if __name__ == "__main__":
     ab = AddressBook()
-    ab_iter = AddressBook_Iter()
+    ab_iter = AddressBookIter()
     main()
